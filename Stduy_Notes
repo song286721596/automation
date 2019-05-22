@@ -1,1 +1,119 @@
+按照惯例，Shell变量由全大写字母加下划线组成，有两种类型的Shell变量：
+1.环境变量:环境变量可以从父进程传给子进程，因此Shell进程的环境变量可以从当前Shell进程传给fork出来的子进程。用printenv命令可以显示当前Shell进程的环境变量。
+注意：fork是linux的系统调用，用来创建子进程（child process）。子进程是父进程(parent process)的一个副本，从父进程那里获得一定的资源分配以及继承父进程的环境。子进程与父进程唯一不同的地方在于pid（process id）。
+2.本地变量：只存在于当前Shell进程，用set命令可以显示当前Shell进程中定义的所有变量（包括本地变量和环境变量）和函数。
+环境变量是任何进程都有的概念，而本地变量是Shell特有的概念。在Shell中，环境变量和本地变量的定义和用法相似。在Shell中定义或赋值一个变量：
+[root@localhost song]# VARNAME=value
+注意等号两边都不能有空格，否则会被Shell解释成命令和命令行参数。
+一个变量定义后仅存在于当前Shell进程，它是本地变量，用export命令可以把本地变量导出为环境变量，定义和导出环境变量通常可以一步完成：
+[root@localhost song]# export VARNAME=value
+也可以分两步完成：
+[root@localhost song]# VARNAME=value
+[root@localhost song]#export VARNAME
+用unset命令可以删除已定义的环境变量或本地变量。
+如果一个变量叫做VARNAME，用${VARNAME}可以表示它的值，在不引起歧义的情况下也可以用$VARNAME表示它的值。通过以下例子比较这两种表示法的不同：
+[root@localhost song]# echo $SHELL
+注意，在定义变量时不用$，取变量值时要用$。和C语言不同的是，Shell变量不需要明确定义类型，事实上Shell变量的值都是字符串，比如我们定义VAR=45，其实VAR的值是字符串45而非整数。Shell变量不需要先定义后使用，如果对一个没有定义的变量取值，则值为空字符串。
 
+文件名代换（Globbing）：* ? []
+这些用于匹配的字符称为通配符（Wildcard），具体如下：
+通配符
+*   匹配0个或多个任意字符
+?   匹配一个任意字符
+[若干字符]  匹配方括号中任意一个字符的一次出现
+$ ls /dev/ttyS*
+$ ls ch0?.doc
+$ ls ch0[0-2].doc
+$ ls ch[012]   [0-9].doc
+注意，Globbing所匹配的文件名是由Shell展开的，也就是说在参数还没传给程序之前已经展开了，比如上述ls ch0[012].doc命令，如果当前目录下有ch00.doc和ch02.doc，则传给ls命令的参数实际上是这两个文件名，而不是一个匹配字符串。
+由'`'反引号括起来的也是一条命令，Shell先执行该命令，然后将输出结果立刻代换到当前命令行中。例如定义一个变量存放date命令的输出：
+[root@localhost song]# DATE=`date`
+[root@localhost song]# echo $DATE
+Wed May 22 00:38:44 PDT 2019
+命令代换也可以用$()表示：
+
+itcast$ DATE=$(date)
+[root@localhost song]# DATE3=$(date)
+[root@localhost song]# echo $DATE3
+Wed May 22 00:40:38 PDT 2019
+算术代换：$(())
+用于算术计算，$(())中的Shell变量取值将转换成整数，同样含义的$[]等价例如：
+[root@localhost song]# VAR=45
+[root@localhost song]# echo $(($VAR+3))
+$(())中只能用+-*/和()运算符，并且只能做整数运算。
+$[base#n],其中base表示进制,n按照base进制解释，后面再有运算数，按十进制解释。
+[root@localhost song]# echo $[2#10+11]
+13
+[root@localhost song]# echo $[8#10+11]
+19
+[root@localhost song]# echo $[10#10+11]
+21
+转义字符\
+和C语言类似，\在Shell中被用作转义字符，用于去除紧跟其后的单个字符的特殊意义（回车除外），换句话说，紧跟其后的字符取字面值。例如：
+[root@localhost song]# echo $SHELL
+/bin/bash
+[root@localhost song]# echo \$SHELL
+$SHELL
+[root@localhost song]# echo \\
+\
+比如创建一个文件名为“$ $”的文件可以这样：
+
+[root@localhost song]# touch \$\ \$
+还有一个字符虽然不具有特殊含义，但是要用它做文件名也很麻烦，就是-号。如果要创建一个文件名以-号开头的文件，这样是不行的：
+
+[root@localhost song]# touch -hello
+touch: invalid option -- h
+Try `touch --help' for more information.
+
+即使加上\转义也还是报错：
+
+[root@localhost song]# touch \-hello
+touch: invalid option -- h
+Try `touch --help' for more information.
+因为各种UNIX命令都把-号开头的命令行参数当作命令的选项，而不会当作文件名。如果非要处理以-号开头的文件名，可以有两种办法：
+
+[root@localhost song]# touch ./-hello
+或者
+
+[root@localhost song]# touch -- -hello
+\还有一种用法，在\后敲回车表示续行，Shell并不会立刻执行命令，而是把光标移到下一行，给出一个续行提示符>，等待用户继续输入，最后把所有的续行接到一起当作一个命令执行。例如：
+
+[root@localhost song]#ls \
+> -l
+（ls -l命令的输出）
+单引号
+和C语言不一样，Shell脚本中的单引号和双引号一样都是字符串的界定符（双引号下一节介绍），而不是字符的界定符。单引号用于保持引号内所有字符的字面值，即使引号内的\和回车也不例外，但是字符串中不能出现单引号。如果引号没有配对就输入回车，Shell会给出续行提示符，要求用户把引号配上对。例如：
+[root@localhost song]# echo '$SHELL'
+$SHELL
+[root@localhost song]# echo 'ABC\
+> DE'
+ABC\
+DE
+双引号
+被双引号用括住的内容，将被视为单一字串。它防止通配符扩展，但允许变量扩展。这点与单引号的处理方式不同
+[root@localhost song]# DATE=$(date)
+[root@localhost song]# echo "$DATE"
+Wed May 22 00:55:40 PDT 2019
+[root@localhost song]# echo '$DATE'
+$DATE
+条件测试：test [
+命令test或[可以测试一个条件是否成立，如果测试结果为真，则该命令的Exit Status为0，如果测试结果为假，则命令的Exit Status为1（注意与C语言的逻辑表示正好相反）。例如测试两个数的大小关系：
+[root@localhost song]# var=2
+[root@localhost song]# test $var -gt 1
+[root@localhost song]# echo $?
+0
+[root@localhost song]# test $var -gt 3
+[root@localhost song]# echo $?
+1
+[root@localhost song]# [ $var -gt 3 ]
+[root@localhost song]# echo $?
+1
+虽然看起来很奇怪，但左方括号[确实是一个命令的名字，传给命令的各参数之间应该用空格隔开，比如，$VAR、-gt、3、]是[命令的四个参数，它们之间必须用空格隔开。命令test或[的参数形式是相同的，只不过test命令不需要]参数。以[命令为例，常见的测试命令如下表所示：
+
+[ -d DIR ]              如果DIR存在并且是一个目录则为真
+[ -f FILE ]             如果FILE存在且是一个普通文件则为真
+[ -z STRING ]           如果STRING的长度为零则为真
+[ -n STRING ]           如果STRING的长度非零则为真
+[ STRING1 = STRING2 ]   如果两个字符串相同则为真
+[ STRING1 != STRING2 ]  如果字符串不相同则为真
+[ ARG1 OP ARG2 ]        ARG1和ARG2应该是整数或者取值为整数的变量，OP是-eq（等于）-ne（不等于）-lt（小于）-le（小于等于）-gt（大于）-ge（大于等于）之中的一个
